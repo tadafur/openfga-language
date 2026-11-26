@@ -1,0 +1,10 @@
+module core
+
+type user
+  relations
+    define approver: [user]
+    define delegate: [user]
+
+type project
+  relations
+    define owner: [user]

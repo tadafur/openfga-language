@@ -1,0 +1,9 @@
+module core
+
+type user
+
+type project
+  relations
+    define owner: [user]
+    define editor: [user] or owner
+    define reviewer: [user] and owner

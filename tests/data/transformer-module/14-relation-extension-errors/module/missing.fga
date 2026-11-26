@@ -1,0 +1,9 @@
+module missing
+
+extend type user
+  relations
+    extend approver: delegate
+
+extend type project
+  relations
+    extend approver: owner

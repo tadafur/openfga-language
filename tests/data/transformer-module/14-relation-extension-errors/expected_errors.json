@@ -1,0 +1,53 @@
+[
+  {
+    "msg": "extension of 'owner' cannot assign types directly",
+    "file": "direct.fga",
+    "line": {
+      "start": 4,
+      "end": 4
+    },
+    "column": {
+      "start": 11,
+      "end": 16
+    },
+    "type": "syntax"
+  },
+  {
+    "msg": "'reader' is already defined in 'project'",
+    "file": "direct.fga",
+    "line": {
+      "start": 6,
+      "end": 6
+    },
+    "column": {
+      "start": 11,
+      "end": 17
+    },
+    "type": "syntax"
+  },
+  {
+    "msg": "a relation can only be extended inside 'extend type' in a modular model",
+    "file": "scoped.fga",
+    "line": {
+      "start": 5,
+      "end": 5
+    },
+    "column": {
+      "start": 11,
+      "end": 16
+    },
+    "type": "syntax"
+  },
+  {
+    "msg": "extended relation approver does not exist on type project",
+    "file": "missing.fga",
+    "line": {
+      "start": 8,
+      "end": 8
+    },
+    "column": {
+      "start": 11,
+      "end": 19
+    }
+  }
+]

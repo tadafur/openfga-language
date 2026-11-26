@@ -113,6 +113,11 @@ func GetExtendedTypeLineNumber(typeName string, lines []string) int {
 	return declarationIndex(lines, "extend type "+typeName)
 }
 
+// GetExtendedRelationLineNumber returns the index of the line extending relation, or -1.
+func GetExtendedRelationLineNumber(relation string, lines []string) int {
+	return declarationIndex(lines, "extend "+relation)
+}
+
 // GetRelationLineNumber returns the index of the line defining relation, or -1.
 // `owner` does not match a definition of `owner_group`.
 func GetRelationLineNumber(relation string, lines []string) int {

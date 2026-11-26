@@ -38,6 +38,13 @@ enum RelationDefinitionOperator {
 
 type RelationTypeInfo = RelationMetadata;
 
+/** An `extend <relation>: ...` declaration in an `extend type` block. */
+export interface RelationExtension {
+  type: string;
+  relation: string;
+  rewrite: Userset;
+}
+
 interface Relation {
   name: string;
   rewrites: Userset[];
@@ -98,6 +105,9 @@ interface StackRelation {
 class OpenFgaDslListener extends OpenFGAListener {
   public authorizationModel: Partial<AuthorizationModel> = {};
   public typeDefExtensions: Map<string, TypeDefinition> = new Map();
+  public relationExtensions: RelationExtension[] = [];
+  // The relations the current type definition extends.
+  private extendedRelations = new Set<string>();
 
   private currentTypeDef: Partial<TypeDefinition> | undefined;
   private currentRelation: Partial<Relation> | undefined;
@@ -143,6 +153,7 @@ class OpenFgaDslListener extends OpenFGAListener {
       ctx.parser?.notifyErrorListeners("extend can only be used in a modular model", ctx._typeName.start, undefined);
     }
 
+    this.extendedRelations = new Set();
     this.currentTypeDef = {
       type: ctx._typeName.getText(),
       relations: {},
@@ -204,9 +215,15 @@ class OpenFgaDslListener extends OpenFGAListener {
 
     const relationDef = parseExpression(rewrites, this.currentRelation?.operator);
 
+    if (ctx.EXTEND()) {
+      this.exitRelationExtension(ctx, relationName, relationDef);
+      this.currentRelation = undefined;
+      return;
+    }
+
     if (relationDef) {
       // Throw error if same named relation occurs more than once in a relationship definition block
-      if (this.currentTypeDef!.relations![relationName]) {
+      if (this.currentTypeDef!.relations![relationName] || this.extendedRelations.has(relationName)) {
         ctx.parser?.notifyErrorListeners(
           `'${relationName}' is already defined in '${this.currentTypeDef?.type}'`,
           ctx.relationName().start,
@@ -228,6 +245,42 @@ class OpenFgaDslListener extends OpenFGAListener {
 
     this.currentRelation = undefined;
   };
+
+  private exitRelationExtension(ctx: RelationDeclarationContext, relationName: string, relationDef?: Userset) {
+    if (!this.isModularModel || !(ctx.parentCtx as TypeDefContext).EXTEND()) {
+      ctx.parser?.notifyErrorListeners(
+        "a relation can only be extended inside 'extend type' in a modular model",
+        ctx.relationName().start,
+        undefined,
+      );
+      return;
+    }
+
+    if (this.currentRelation?.typeInfo?.directly_related_user_types?.length) {
+      ctx.parser?.notifyErrorListeners(
+        `extension of '${relationName}' cannot assign types directly`,
+        ctx.relationName().start,
+        undefined,
+      );
+      return;
+    }
+
+    if (this.currentTypeDef!.relations![relationName] || this.extendedRelations.has(relationName)) {
+      ctx.parser?.notifyErrorListeners(
+        `'${relationName}' is already defined in '${this.currentTypeDef?.type}'`,
+        ctx.relationName().start,
+        undefined,
+      );
+      return;
+    }
+
+    if (!relationDef) {
+      return;
+    }
+
+    this.extendedRelations.add(relationName);
+    this.relationExtensions.push({ type: this.currentTypeDef!.type!, relation: relationName, rewrite: relationDef });
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   enterRelationDefDirectAssignment = (_ctx: RelationDefDirectAssignmentContext) => {
@@ -508,6 +561,7 @@ export function transformDSLToJSON(data: string): string {
 interface ModularDSLTransformResult {
   authorizationModel: Omit<AuthorizationModel, "id">;
   typeDefExtensions: Map<string, TypeDefinition>;
+  relationExtensions: RelationExtension[];
   isModularModel: boolean;
 }
 
@@ -528,6 +582,7 @@ export function transformModularDSLToJSONObject(data: string): ModularDSLTransfo
   return {
     authorizationModel: listener.authorizationModel as Omit<AuthorizationModel, "id">,
     typeDefExtensions: listener.typeDefExtensions,
+    relationExtensions: listener.relationExtensions,
     isModularModel: listener.isModularModel,
   };
 }

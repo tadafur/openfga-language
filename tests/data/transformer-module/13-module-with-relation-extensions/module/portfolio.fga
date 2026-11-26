@@ -1,0 +1,14 @@
+module portfolio
+
+type program
+  relations
+    define manager: [user]
+    define member: [user]
+
+extend type project
+  relations
+    define program: [program]
+    define auditor: [user]
+    extend owner: manager from program
+    extend editor: member from program or manager from program
+    extend reviewer: (member from program and auditor)

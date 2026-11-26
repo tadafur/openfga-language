@@ -1,0 +1,7 @@
+module direct
+
+extend type project
+  relations
+    extend owner: [user]
+    define reader: [user]
+    extend reader: owner

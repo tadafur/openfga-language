@@ -1,0 +1,25 @@
+model
+  schema 1.2
+
+type project
+  relations
+    define editor: [user] or owner or member from program or manager from program or member from board
+    define owner: [user] or manager from program
+    define reviewer: ([user] and owner) or (member from program and auditor)
+    define auditor: [user] or member from board
+    define program: [program]
+    define board: [board]
+
+type user
+  relations
+    define delegate: [user] or deputy
+    define deputy: [user]
+
+type program
+  relations
+    define manager: [user]
+    define member: [user]
+
+type board
+  relations
+    define member: [user]

@@ -39,7 +39,7 @@ export const getTypeLineNumber = (typeName: string, lines?: string[], skipIndex?
   return index === -1 ? -1 : index + skipIndex;
 };
 
-export const getRelationLineNumber = (relation: string, lines?: string[], skipIndex?: number) => {
+export const getRelationLineNumber = (relation: string, lines?: string[], skipIndex?: number, extension = false) => {
   if (!skipIndex || skipIndex < 0) {
     skipIndex = 0;
   }
@@ -47,7 +47,7 @@ export const getRelationLineNumber = (relation: string, lines?: string[], skipIn
     return undefined;
   }
   // Match the relation name literally (it may contain regex metacharacters like `.`).
-  const relationPrefix = `define ${relation}`;
+  const relationPrefix = `${extension ? "extend" : "define"} ${relation}`;
   const index = lines.slice(skipIndex).findIndex((line: string) => {
     const normalized = normalizeWhitespace(line);
     return normalized.startsWith(relationPrefix) && /^\s*:/.test(normalized.slice(relationPrefix.length));

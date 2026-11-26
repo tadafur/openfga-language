@@ -1,0 +1,16 @@
+module supervision
+
+type board
+  relations
+    define member: [user]
+
+extend type project
+  relations
+    define board: [board]
+    extend editor: member from board
+    extend auditor: member from board
+
+extend type user
+  relations
+    define delegate: [user]
+    define deputy: [user]
