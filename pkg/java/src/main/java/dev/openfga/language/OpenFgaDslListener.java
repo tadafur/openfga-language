@@ -210,6 +210,14 @@ public class OpenFgaDslListener extends OpenFGAParserBaseListener {
 
         var relationName = ctx.relationName().getText();
 
+        // Only the Go and JS module transformers merge relation extensions.
+        if (ctx.EXTEND() != null) {
+            parser.notifyErrorListeners(
+                    ctx.relationName().start, "extending a relation is not supported by this package", null);
+            currentRelation = null;
+            return;
+        }
+
         var relationDef = parseExpression(currentRelation.getRewrites(), currentRelation.getOperator());
         if (relationDef != null) {
             if (this.currentTypeDef.getRelations().get(relationName) != null) {

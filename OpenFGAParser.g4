@@ -13,7 +13,7 @@ typeDefs: typeDef*;
 typeDef:  (NEWLINE multiLineComment)? NEWLINE (EXTEND WHITESPACE)? TYPE WHITESPACE typeName=extended_identifier (NEWLINE RELATIONS relationDeclaration+)?;
 
 // Relation definitions
-relationDeclaration: (NEWLINE multiLineComment)? NEWLINE DEFINE WHITESPACE relationName WHITESPACE? COLON WHITESPACE? (relationDef);
+relationDeclaration: (NEWLINE multiLineComment)? NEWLINE (DEFINE | EXTEND) WHITESPACE relationName WHITESPACE? COLON WHITESPACE? (relationDef);
 relationName: extended_identifier;
 
 relationDef: (relationDefDirectAssignment | relationDefGrouping | relationRecurse) (relationDefPartials)?;

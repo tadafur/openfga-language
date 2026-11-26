@@ -1,0 +1,6 @@
+module scoped
+
+type ledger
+  relations
+    define owner: [user]
+    extend owner: [user]

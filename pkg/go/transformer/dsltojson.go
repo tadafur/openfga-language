@@ -29,6 +29,14 @@ type relation struct {
 	TypeInfo openfgav1.RelationTypeInfo
 }
 
+// relationExtension is an `extend <relation>: ...` declaration in an `extend type` block. Its
+// rewrite is added to the existing relation as another way to satisfy it.
+type relationExtension struct {
+	Type     string
+	Relation string
+	Rewrite  *openfgav1.Userset
+}
+
 type stackRelation struct {
 	Rewrites []*openfgav1.Userset
 	Operator RelationDefinitionOperator
@@ -45,6 +53,9 @@ type OpenFgaDslListener struct {
 	isModularModel     bool
 	moduleName         string
 	typeDefExtensions  map[string]*openfgav1.TypeDefinition
+	relationExtensions []*relationExtension
+	// extendedRelations holds the relations the current type definition extends.
+	extendedRelations map[string]bool
 }
 
 func newOpenFgaDslListener() *OpenFgaDslListener {
@@ -126,6 +137,7 @@ func (l *OpenFgaDslListener) EnterTypeDef(ctx *parser.TypeDefContext) {
 		)
 	}
 
+	l.extendedRelations = map[string]bool{}
 	l.currentTypeDef = &openfgav1.TypeDefinition{
 		Type:      ctx.GetTypeName().GetText(),
 		Relations: map[string]*openfgav1.Userset{},
@@ -275,8 +287,15 @@ func (l *OpenFgaDslListener) ExitRelationDeclaration(ctx *parser.RelationDeclara
 	relationName := ctx.RelationName().GetText()
 	relationDef := ParseExpression(l.currentRelation.Rewrites, l.currentRelation.Operator)
 
+	if ctx.EXTEND() != nil {
+		l.exitRelationExtension(ctx, relationName, relationDef)
+		l.currentRelation = nil
+
+		return
+	}
+
 	if relationDef != nil {
-		if l.currentTypeDef.GetRelations()[relationName] != nil {
+		if l.currentTypeDef.GetRelations()[relationName] != nil || l.extendedRelations[relationName] {
 			ctx.GetParser().NotifyErrorListeners(
 				fmt.Sprintf("'%s' is already defined in '%s'", relationName, l.currentTypeDef.GetType()),
 				ctx.RelationName().GetStart(),
@@ -300,6 +319,51 @@ func (l *OpenFgaDslListener) ExitRelationDeclaration(ctx *parser.RelationDeclara
 	}
 
 	l.currentRelation = nil
+}
+
+func (l *OpenFgaDslListener) exitRelationExtension(
+	ctx *parser.RelationDeclarationContext,
+	relationName string,
+	relationDef *openfgav1.Userset,
+) {
+	parent, ok := ctx.GetParent().(*parser.TypeDefContext)
+	if !ok || parent.EXTEND() == nil || !l.isModularModel {
+		ctx.GetParser().NotifyErrorListeners(
+			"a relation can only be extended inside 'extend type' in a modular model",
+			ctx.RelationName().GetStart(),
+			nil)
+
+		return
+	}
+
+	if len(l.currentRelation.TypeInfo.GetDirectlyRelatedUserTypes()) > 0 {
+		ctx.GetParser().NotifyErrorListeners(
+			fmt.Sprintf("extension of '%s' cannot assign types directly", relationName),
+			ctx.RelationName().GetStart(),
+			nil)
+
+		return
+	}
+
+	if l.currentTypeDef.GetRelations()[relationName] != nil || l.extendedRelations[relationName] {
+		ctx.GetParser().NotifyErrorListeners(
+			fmt.Sprintf("'%s' is already defined in '%s'", relationName, l.currentTypeDef.GetType()),
+			ctx.RelationName().GetStart(),
+			nil)
+
+		return
+	}
+
+	if relationDef == nil {
+		return
+	}
+
+	l.extendedRelations[relationName] = true
+	l.relationExtensions = append(l.relationExtensions, &relationExtension{
+		Type:     l.currentTypeDef.GetType(),
+		Relation: relationName,
+		Rewrite:  relationDef,
+	})
 }
 
 func (l *OpenFgaDslListener) EnterRelationDefDirectAssignment(_ *parser.RelationDefDirectAssignmentContext) {
@@ -602,22 +666,32 @@ func MustTransformDSLToJSON(data string) string {
 // TransformModularDSLToProto - Converts a part of a modular model in DSL syntax to the json syntax accepted by
 // OpenFGA API and also returns the type definitions that are extended in the DSL if any are.
 func TransformModularDSLToProto(data string) (*openfgav1.AuthorizationModel, map[string]*openfgav1.TypeDefinition, error) {
-	model, typeDefExtensions, _, err := transformModularDSLToProto(data)
+	model, typeDefExtensions, _, _, err := transformModularDSLToProto(data)
 
 	return model, typeDefExtensions, err
 }
 
-// transformModularDSLToProto parses a module file and also reports whether it
-// declared a module header, which TransformModuleFilesToModel uses to tell a
-// module apart from a plain model.
+// transformModularDSLToProto parses a module file and also returns its relation
+// extensions and whether it declared a module header, which TransformModuleFilesToModel
+// uses to tell a module apart from a plain model.
 func transformModularDSLToProto(
 	data string,
-) (*openfgav1.AuthorizationModel, map[string]*openfgav1.TypeDefinition, bool, error) {
+) (
+	*openfgav1.AuthorizationModel,
+	map[string]*openfgav1.TypeDefinition,
+	[]*relationExtension,
+	bool,
+	error,
+) {
 	listener, errorListener := ParseDSL(data)
 
 	if errorListener.Errors != nil {
-		return nil, nil, false, errorListener.Errors
+		return nil, nil, nil, false, errorListener.Errors
 	}
 
-	return &listener.authorizationModel, listener.typeDefExtensions, listener.isModularModel, nil
+	return &listener.authorizationModel,
+		listener.typeDefExtensions,
+		listener.relationExtensions,
+		listener.isModularModel,
+		nil
 }

@@ -1,6 +1,6 @@
-import { AuthorizationModel, Condition, TypeDefinition } from "@openfga/sdk";
+import { AuthorizationModel, Condition, TypeDefinition, Userset } from "@openfga/sdk";
 import { validateJSON } from "../../validator/validate-dsl";
-import { transformModularDSLToJSONObject } from "../dsltojson";
+import { RelationExtension, transformModularDSLToJSONObject } from "../dsltojson";
 import {
   BaseError,
   DSLSyntaxError,
@@ -31,6 +31,7 @@ export const transformModuleFilesToModel = (
   const typeDefs: TypeDefinition[] = [];
   const types = new Set<string>();
   const extendedTypeDefs: Record<string, TypeDefinition[]> = {};
+  const relationExtensions: (RelationExtension & { file: string })[] = [];
   const conditions = new Map<string, Condition>();
   const errors: BaseError[] = [];
   const moduleFiles = new Map(files.map((file) => [file.name, file.contents]));
@@ -38,7 +39,12 @@ export const transformModuleFilesToModel = (
   for (const { name, contents } of files) {
     try {
       const lines = contents.split("\n");
-      const { authorizationModel, typeDefExtensions, isModularModel } = transformModularDSLToJSONObject(contents);
+      const {
+        authorizationModel,
+        typeDefExtensions,
+        relationExtensions: moduleRelationExtensions,
+        isModularModel,
+      } = transformModularDSLToJSONObject(contents);
 
       // A file with no module header is a plain model, not a module. Skip the
       // whole file with one error rather than letting its types leak into the
@@ -54,6 +60,8 @@ export const transformModuleFilesToModel = (
         );
         continue;
       }
+
+      relationExtensions.push(...moduleRelationExtensions.map((extension) => ({ ...extension, file: name })));
 
       // A condition-only module has no type_definitions; default it so the
       // loop below iterates rather than throwing.
@@ -198,6 +206,39 @@ export const transformModuleFilesToModel = (
     }
   }
 
+  // Relation extensions apply after every type extension, so an extension can target a
+  // relation another module added. They apply in module order, then declaration order,
+  // so the combined model is the same on every build.
+  for (const extension of relationExtensions) {
+    const typeDef = typeDefs.find((t) => t.type === extension.type);
+    if (!typeDef) {
+      continue; // reported above as an extended type that does not exist
+    }
+
+    const existing = typeDef.relations?.[extension.relation];
+    if (!existing) {
+      const lines = moduleFiles.get(extension.file)?.split("\n");
+      const typeLine = getTypeLineNumber(extension.type, lines, 0, true);
+      const lineIndex = getRelationLineNumber(extension.relation, lines, typeLine, true);
+      errors.push(
+        constructTransformationError({
+          message: `extended relation ${extension.relation} does not exist on type ${extension.type}`,
+          lines,
+          lineIndex,
+          metadata: {
+            symbol: extension.relation,
+            file: extension.file,
+          },
+        }),
+      );
+      continue;
+    }
+
+    typeDef.relations![extension.relation] = {
+      union: { child: [...unionChildren(existing), ...unionChildren(extension.rewrite)] },
+    };
+  }
+
   model.type_definitions = typeDefs;
   model.conditions = Object.fromEntries(conditions);
 
@@ -240,6 +281,11 @@ export const transformModuleFilesToModel = (
 
   return model;
 };
+
+/** The operands of a union, or the userset itself when it is not a union. */
+function unionChildren(userset: Userset): Userset[] {
+  return userset.union ? userset.union.child : [userset];
+}
 
 function resolveLineIndex(e: ModelValidationSingleError, lines?: string[]): number {
   const { metadata } = e;

@@ -1,0 +1,268 @@
+{
+  "schema_version": "1.2",
+  "type_definitions": [
+    {
+      "type": "user",
+      "relations": {},
+      "metadata": {
+        "module": "core",
+        "source_info": {
+          "file": "core.fga"
+        }
+      }
+    },
+    {
+      "type": "project",
+      "relations": {
+        "owner": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "tupleToUserset": {
+                  "computedUserset": {
+                    "relation": "manager"
+                  },
+                  "tupleset": {
+                    "relation": "program"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "editor": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "relation": "owner"
+                }
+              },
+              {
+                "tupleToUserset": {
+                  "computedUserset": {
+                    "relation": "member"
+                  },
+                  "tupleset": {
+                    "relation": "program"
+                  }
+                }
+              },
+              {
+                "tupleToUserset": {
+                  "computedUserset": {
+                    "relation": "manager"
+                  },
+                  "tupleset": {
+                    "relation": "program"
+                  }
+                }
+              },
+              {
+                "tupleToUserset": {
+                  "computedUserset": {
+                    "relation": "member"
+                  },
+                  "tupleset": {
+                    "relation": "board"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "reviewer": {
+          "union": {
+            "child": [
+              {
+                "intersection": {
+                  "child": [
+                    {
+                      "this": {}
+                    },
+                    {
+                      "computedUserset": {
+                        "relation": "owner"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "intersection": {
+                  "child": [
+                    {
+                      "tupleToUserset": {
+                        "computedUserset": {
+                          "relation": "member"
+                        },
+                        "tupleset": {
+                          "relation": "program"
+                        }
+                      }
+                    },
+                    {
+                      "computedUserset": {
+                        "relation": "auditor"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "program": {
+          "this": {}
+        },
+        "auditor": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "tupleToUserset": {
+                  "computedUserset": {
+                    "relation": "member"
+                  },
+                  "tupleset": {
+                    "relation": "board"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "board": {
+          "this": {}
+        }
+      },
+      "metadata": {
+        "relations": {
+          "owner": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "editor": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "reviewer": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "program": {
+            "directly_related_user_types": [
+              {
+                "type": "program"
+              }
+            ],
+            "module": "portfolio",
+            "source_info": {
+              "file": "portfolio.fga"
+            }
+          },
+          "auditor": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ],
+            "module": "portfolio",
+            "source_info": {
+              "file": "portfolio.fga"
+            }
+          },
+          "board": {
+            "directly_related_user_types": [
+              {
+                "type": "board"
+              }
+            ],
+            "module": "supervision",
+            "source_info": {
+              "file": "supervision.fga"
+            }
+          }
+        },
+        "module": "core",
+        "source_info": {
+          "file": "core.fga"
+        }
+      }
+    },
+    {
+      "type": "program",
+      "relations": {
+        "manager": {
+          "this": {}
+        },
+        "member": {
+          "this": {}
+        }
+      },
+      "metadata": {
+        "relations": {
+          "manager": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "member": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          }
+        },
+        "module": "portfolio",
+        "source_info": {
+          "file": "portfolio.fga"
+        }
+      }
+    },
+    {
+      "type": "board",
+      "relations": {
+        "member": {
+          "this": {}
+        }
+      },
+      "metadata": {
+        "relations": {
+          "member": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          }
+        },
+        "module": "supervision",
+        "source_info": {
+          "file": "supervision.fga"
+        }
+      }
+    }
+  ],
+  "conditions": {}
+}

@@ -18,6 +18,12 @@ type ModuleFile struct {
 
 type ModuleTransformationSingleMetadata struct{}
 
+// moduleRelationExtension is a relation extension together with the module file declaring it.
+type moduleRelationExtension struct {
+	*relationExtension
+	File string
+}
+
 // ModuleTransformationSingleError is an error occurred during transformation of a module. Line and
 // column number provided are one based.
 type ModuleTransformationSingleError struct {
@@ -75,6 +81,7 @@ func TransformModuleFilesToModel( //nolint:funlen,gocognit,cyclop
 	rawTypeDefs := []*openfgav1.TypeDefinition{}
 	types := []string{}
 	extendedTypeDefs := map[string][]*openfgav1.TypeDefinition{}
+	relationExtensions := []*moduleRelationExtension{}
 	conditions := map[string]*openfgav1.Condition{}
 	moduleFiles := map[string][]string{}
 
@@ -84,7 +91,7 @@ func TransformModuleFilesToModel( //nolint:funlen,gocognit,cyclop
 		lines := strings.Split(module.Contents, "\n")
 		moduleFiles[module.Name] = lines
 
-		mdl, typeDefExtensions, isModule, err := transformModularDSLToProto(module.Contents)
+		mdl, typeDefExtensions, moduleRelationExtensions, isModule, err := transformModularDSLToProto(module.Contents)
 		if err != nil {
 			var syntaxError *OpenFgaDslSyntaxMultipleError
 			if errors.As(err, &syntaxError) {
@@ -104,6 +111,13 @@ func TransformModuleFilesToModel( //nolint:funlen,gocognit,cyclop
 			})
 
 			continue
+		}
+
+		for _, extension := range moduleRelationExtensions {
+			relationExtensions = append(relationExtensions, &moduleRelationExtension{
+				relationExtension: extension,
+				File:              module.Name,
+			})
 		}
 
 		for _, typeDef := range mdl.GetTypeDefinitions() {
@@ -243,6 +257,48 @@ func TransformModuleFilesToModel( //nolint:funlen,gocognit,cyclop
 		}
 	}
 
+	// Relation extensions apply after every type extension, so an extension can target a
+	// relation another module added. They apply in module order, then declaration order,
+	// so the combined model is the same on every build.
+	for _, extension := range relationExtensions {
+		typeIndex := slices.IndexFunc(rawTypeDefs, func(t *openfgav1.TypeDefinition) bool {
+			return t.GetType() == extension.Type
+		})
+		if typeIndex == -1 {
+			continue // reported above as an extended type that does not exist
+		}
+
+		typeDef := rawTypeDefs[typeIndex]
+		existing := typeDef.GetRelations()[extension.Relation]
+		if existing == nil {
+			lines := moduleFiles[extension.File]
+			typeLine := max(utils.GetExtendedTypeLineNumber(extension.Type, lines), 0)
+
+			lineIndex := utils.GetExtendedRelationLineNumber(extension.Relation, lines[typeLine:])
+			if lineIndex != -1 {
+				lineIndex += typeLine
+			}
+
+			line, col := utils.ConstructLineAndColumnData(lines, lineIndex, extension.Relation)
+			transformErrors.Errors = append(transformErrors.Errors, &ModuleTransformationSingleError{
+				Msg:    fmt.Sprintf("extended relation %s does not exist on type %s", extension.Relation, extension.Type),
+				File:   extension.File,
+				Line:   line,
+				Column: col,
+			})
+
+			continue
+		}
+
+		typeDef.Relations[extension.Relation] = &openfgav1.Userset{
+			Userset: &openfgav1.Userset_Union{
+				Union: &openfgav1.Usersets{
+					Child: slices.Concat(unionChildren(existing), unionChildren(extension.Rewrite)),
+				},
+			},
+		}
+	}
+
 	model.TypeDefinitions = rawTypeDefs
 	model.Conditions = conditions
 
@@ -253,4 +309,13 @@ func TransformModuleFilesToModel( //nolint:funlen,gocognit,cyclop
 	}
 
 	return model, nil
+}
+
+// unionChildren returns the operands of a union, or the userset itself when it is not a union.
+func unionChildren(userset *openfgav1.Userset) []*openfgav1.Userset {
+	if union := userset.GetUnion(); union != nil {
+		return union.GetChild()
+	}
+
+	return []*openfgav1.Userset{userset}
 }
