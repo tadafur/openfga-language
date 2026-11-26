@@ -3,8 +3,50 @@
   "type_definitions": [
     {
       "type": "user",
-      "relations": {},
+      "relations": {
+        "delegate": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "relation": "deputy"
+                }
+              }
+            ]
+          }
+        },
+        "deputy": {
+          "this": {}
+        }
+      },
       "metadata": {
+        "relations": {
+          "delegate": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ],
+            "module": "supervision",
+            "source_info": {
+              "file": "supervision.fga"
+            }
+          },
+          "deputy": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ],
+            "module": "supervision",
+            "source_info": {
+              "file": "supervision.fga"
+            }
+          }
+        },
         "module": "core",
         "source_info": {
           "file": "core.fga"

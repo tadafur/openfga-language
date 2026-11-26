@@ -11,6 +11,9 @@ type project # module: core, file: core.fga
     define board: [board] # extended by: module: supervision, file: supervision.fga
 
 type user # module: core, file: core.fga
+  relations
+    define delegate: [user] or deputy # extended by: module: supervision, file: supervision.fga
+    define deputy: [user] # extended by: module: supervision, file: supervision.fga
 
 type program # module: portfolio, file: portfolio.fga
   relations

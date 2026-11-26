@@ -11,6 +11,9 @@ type project
     define board: [board]
 
 type user
+  relations
+    define delegate: [user] or deputy
+    define deputy: [user]
 
 type program
   relations

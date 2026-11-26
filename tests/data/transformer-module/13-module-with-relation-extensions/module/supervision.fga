@@ -9,3 +9,8 @@ extend type project
     define board: [board]
     extend editor: member from board
     extend auditor: member from board
+
+extend type user
+  relations
+    define delegate: [user]
+    define deputy: [user]

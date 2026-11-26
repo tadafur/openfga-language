@@ -146,6 +146,11 @@ export const transformModuleFilesToModel = (
         continue;
       }
 
+      // A block holding only relation extensions adds nothing here; they merge below.
+      if (!Object.keys(typeDef.relations).length) {
+        continue;
+      }
+
       const existingRelationNames = Object.keys(original.relations || {});
 
       if (!existingRelationNames || !existingRelationNames.length) {

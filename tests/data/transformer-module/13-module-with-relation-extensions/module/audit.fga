@@ -1,0 +1,5 @@
+module audit
+
+extend type user
+  relations
+    extend delegate: deputy
